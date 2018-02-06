@@ -14,38 +14,22 @@ type Op struct {
 	val reflect.Value
 }
 
-type MapVisitor interface {
-	Map(keys []string, key string, data reflect.Value)
-}
-
-type NodeVisitor interface {
-	Node(keys []string, data reflect.Value) (Op, error)
-}
-
 type Traverser struct {
 	Map  func(keys []string, key string, data reflect.Value)
 	Node func(keys []string, data reflect.Value) (Op, error)
 }
 
-func New(r interface{}) *Traverser {
-	ret := &Traverser{}
-	if mapVisitor, ok := r.(MapVisitor); ok {
-		ret.Map = mapVisitor.Map
-	}
-
-	if nodeVisitor, ok := r.(NodeVisitor); ok {
-		ret.Node = nodeVisitor.Node
-	}
-
-	return ret
+func (gt *Traverser) Traverse(data reflect.Value) error {
+	_, err := gt.traverse(data, make([]string, 0))
+	return err
 }
 
-func (gt *Traverser) Traverse(data reflect.Value, keys []string) (Op, error) {
-	if data.Kind() == reflect.Interface {
-		data = data.Elem()
-	}
-
+func (gt *Traverser) traverse(data reflect.Value, keys []string) (Op, error) {
 	switch data.Kind() {
+	case reflect.Interface:
+		return gt.traverse(data.Elem(), keys)
+	case reflect.Ptr:
+		return gt.traverse(reflect.Indirect(data), keys)
 	case reflect.Map:
 		for _, k := range data.MapKeys() {
 			v := data.MapIndex(k)
@@ -54,7 +38,7 @@ func (gt *Traverser) Traverse(data reflect.Value, keys []string) (Op, error) {
 				gt.Map(keys, ks, v)
 			}
 
-			op, _ := gt.Traverse(v, append(keys, ks))
+			op, _ := gt.traverse(v, append(keys, ks))
 			if op.op == op_set || op.op == op_unset {
 				data.SetMapIndex(k, op.val)
 			}
@@ -62,16 +46,21 @@ func (gt *Traverser) Traverse(data reflect.Value, keys []string) (Op, error) {
 	case reflect.Slice:
 		d := data.Interface().([]interface{})
 		for k := range d {
-			lastKey := ""
-			lastKeyIdx := len(keys) - 1
-			if lastKeyIdx >= 0 {
-				lastKey = keys[lastKeyIdx]
+			if k >= len(d) {
+				return Noop()
 			}
-			op, _ := gt.Traverse(reflect.ValueOf(d[k]), append(keys, fmt.Sprintf("%v%d", lastKey, k)))
-			if op.op == op_set || op.op == op_unset {
-				d[k] = op.val.Elem()
+
+			op, _ := gt.traverse(reflect.ValueOf(d[k]), append(keys, fmt.Sprintf("%v", k)))
+			if op.op == op_set {
+				d[k] = op.val.Interface()
+			} else if op.op == op_unset {
+				d = append(d[:k], d[k+1:]...)
 			}
 		}
+	case reflect.Struct:
+		fallthrough
+	case reflect.Invalid:
+		return Noop()
 	default:
 		if gt.Node != nil {
 			return gt.Node(keys, data)
