@@ -38,7 +38,11 @@ func (gt *Traverser) traverse(data reflect.Value, keys []string) (Op, error) {
 				gt.Map(keys, ks, v)
 			}
 
-			op, _ := gt.traverse(v, append(keys, ks))
+			op, err := gt.traverse(v, append(keys, ks))
+			if err != nil {
+				return op, err
+			}
+
 			if op.op == op_set || op.op == op_unset {
 				data.SetMapIndex(k, op.val)
 			}
@@ -50,7 +54,11 @@ func (gt *Traverser) traverse(data reflect.Value, keys []string) (Op, error) {
 				return Noop()
 			}
 
-			op, _ := gt.traverse(reflect.ValueOf(d[k]), append(keys, fmt.Sprintf("%v", k)))
+			op, err := gt.traverse(reflect.ValueOf(d[k]), append(keys, fmt.Sprintf("%v", k)))
+			if err != nil {
+				return op, err
+			}
+
 			if op.op == op_set {
 				d[k] = op.val.Interface()
 			} else if op.op == op_unset {
@@ -82,6 +90,10 @@ func Unset() (Op, error) {
 	return Op{op_unset, reflect.Value{}}, nil
 }
 
-func Error(err error) (Op, error) {
+func ErrorUnset(err error) (Op, error) {
+	return Op{op_unset, reflect.Value{}}, err
+}
+
+func ErrorNoop(err error) (Op, error) {
 	return Op{op_noop, reflect.Value{}}, err
 }

@@ -1,15 +1,23 @@
 package traverser_test
 
 import (
+	"testing"
+
 	"github.com/mikesimons/traverser"
 
 	//"fmt"
+	"reflect"
+	"strings"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/rounds/go-optikon"
-	"reflect"
-	"strings"
 )
+
+func TestTraverser(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Traverser Suite")
+}
 
 type testStruct struct {
 	Value string
@@ -152,6 +160,7 @@ var _ = Describe("traverser", func() {
 			Expect(err).To(BeNil())
 			Expect(v).To(Equal("TEST"))
 		})
+
 		It("should unset slice value if OP_UNSET returned from Node", func() {
 			t := traverser.Traverser{
 				Node: func(keys []string, data reflect.Value) (traverser.Op, error) {
@@ -163,13 +172,20 @@ var _ = Describe("traverser", func() {
 			}
 
 			data := mapTestData()
+
+			splitPath := []string{"b", "0"}
+			oldval, _ := optikon.Select(data, splitPath)
+
+			expected, _ := optikon.Select(data, []string{"b", "1"})
+
 			err := t.Traverse(reflect.ValueOf(data))
 			Expect(err).To(BeNil())
 
-			splitPath := []string{"b", "0"}
-			_, err = optikon.Select(data, splitPath)
-			Expect(err).To(BeAssignableToTypeOf(&optikon.KeyNotFoundError{}))
+			newval, _ := optikon.Select(data, splitPath)
+			Expect(newval).NotTo(Equal(oldval))
+			Expect(newval).To(Equal(expected))
 		})
+
 		PIt("should do nothing to map if OP_NOOP returned from Node")
 		PIt("should do nothing to slice if OP_NOOP returned from Node")
 	})
