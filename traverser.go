@@ -1,3 +1,4 @@
+// Package traverser implements traversal of unknown structures with optional callbacks
 package traverser
 
 import (
@@ -5,25 +6,34 @@ import (
 	"reflect"
 )
 
-const op_noop = 0
-const op_set = 1
-const op_unset = 2
+const (
+	op_noop = iota
+	op_set
+	op_unset
+)
 
-type Op struct {
-	op  int
-	val reflect.Value
-}
-
+// Traverser is the main type and contains the Map & Node callbacks to be used.
+// Map will be called each time a Map type is encountered
+// Node will be called for each traversable element
 type Traverser struct {
 	Map  func(keys []string, key string, data reflect.Value)
 	Node func(keys []string, data reflect.Value) (Op, error)
 }
 
+// Op represents an operation to perform on a value passed to the Node callback.
+// It is used to skip, mutate and handle error conditions.
+type Op struct {
+	op  int
+	val reflect.Value
+}
+
+// Traverse is the recursive entrypoint for traversal of the given reflect.Value.
 func (gt *Traverser) Traverse(data reflect.Value) error {
 	_, err := gt.traverse(data, make([]string, 0))
 	return err
 }
 
+// traverse is the internal recursion function and handles the core traversal logic.
 func (gt *Traverser) traverse(data reflect.Value, keys []string) (Op, error) {
 	switch data.Kind() {
 	case reflect.Interface:
@@ -78,22 +88,27 @@ func (gt *Traverser) traverse(data reflect.Value, keys []string) (Op, error) {
 	return Noop()
 }
 
+// Set is a helper function that will return an Op to set the key currently being traversed to the given value
 func Set(v reflect.Value) (Op, error) {
 	return Op{op_set, v}, nil
 }
 
+// Noop is a helper function that will return an Op that doesn't do anything
 func Noop() (Op, error) {
 	return Op{op_noop, reflect.Value{}}, nil
 }
 
+// Unset is a helper function that will return an Op that unsets the key currently being traversed
 func Unset() (Op, error) {
 	return Op{op_unset, reflect.Value{}}, nil
 }
 
+// ErrorUnset is a helper function that will return an Op that unsets the key currently being traversed and returns an error
 func ErrorUnset(err error) (Op, error) {
 	return Op{op_unset, reflect.Value{}}, err
 }
 
+// ErrorNoop is a helper function that will return an Op that doesn't do anything but return an error
 func ErrorNoop(err error) (Op, error) {
 	return Op{op_noop, reflect.Value{}}, err
 }
