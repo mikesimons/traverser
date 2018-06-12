@@ -103,6 +103,11 @@ func Unset() (Op, error) {
 	return Op{op_unset, reflect.Value{}}, nil
 }
 
+// ErrorSet is a helper function that will return an Op that sets the key currently being traversed to the given value and returns an error
+func ErrorSet(err error, v reflect.Value) (Op, error) {
+	return Op{op_set, v}, err
+}
+
 // ErrorUnset is a helper function that will return an Op that unsets the key currently being traversed and returns an error
 func ErrorUnset(err error) (Op, error) {
 	return Op{op_unset, reflect.Value{}}, err
