@@ -10,14 +10,17 @@ const (
 	op_noop = iota
 	op_set
 	op_unset
+	op_skip
 )
 
 // Traverser is the main type and contains the Map & Node callbacks to be used.
 // Map will be called each time a Map type is encountered
 // Node will be called for each traversable element
+// Accept will be called each time a traversal is made
 type Traverser struct {
-	Map  func(keys []string, key string, data reflect.Value)
-	Node func(keys []string, data reflect.Value) (Op, error)
+	Map    func(keys []string, key string, data reflect.Value)
+	Node   func(keys []string, data reflect.Value) (Op, error)
+	Accept func(keys []string, data reflect.Value) (Op, error)
 }
 
 // Op represents an operation to perform on a value passed to the Node callback.
@@ -29,12 +32,19 @@ type Op struct {
 
 // Traverse is the recursive entrypoint for traversal of the given reflect.Value.
 func (gt *Traverser) Traverse(data reflect.Value) error {
-	_, err := gt.traverse(data, make([]string, 0))
+	_, err := gt.traverse(data, []string{})
 	return err
 }
 
 // traverse is the internal recursion function and handles the core traversal logic.
 func (gt *Traverser) traverse(data reflect.Value, keys []string) (Op, error) {
+	if gt.Accept != nil && len(keys) > 0 {
+		op, _ := gt.Accept(keys, data)
+		if op.op == op_skip {
+			return Noop()
+		}
+	}
+
 	switch data.Kind() {
 	case reflect.Interface:
 		return gt.traverse(data.Elem(), keys)
@@ -116,4 +126,9 @@ func ErrorUnset(err error) (Op, error) {
 // ErrorNoop is a helper function that will return an Op that doesn't do anything but return an error
 func ErrorNoop(err error) (Op, error) {
 	return Op{op_noop, reflect.Value{}}, err
+}
+
+// Skip is a helper function that will return an Op that will skip processing of the current node
+func Skip() (Op, error) {
+	return Op{op_skip, reflect.Value{}}, nil
 }

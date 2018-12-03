@@ -99,6 +99,28 @@ var _ = Describe("traverser", func() {
 
 			Expect(err).To(BeNil())
 		})
+
+		It("should only process nodes that are accepted", func() {
+			nodes := make(map[string]interface{})
+			t := traverser.Traverser{
+				Node: func(keys []string, data reflect.Value) (traverser.Op, error) {
+					nodes[strings.Join(keys, "/")] = data.Interface()
+					return traverser.Noop()
+				},
+				Accept: func(keys []string, data reflect.Value) (traverser.Op, error) {
+					key := strings.Join(keys, "/")
+					if strings.HasPrefix("a/aa", key) {
+						return traverser.Noop()
+					}
+					return traverser.Skip()
+				},
+			}
+
+			data := mapTestData()
+			err := t.Traverse(reflect.ValueOf(data))
+			Expect(err).To(BeNil())
+			Expect(len(nodes)).To(Equal(1))
+		})
 	})
 
 	Describe("Traverse return operation handling", func() {
