@@ -1,6 +1,7 @@
 package traverser_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/mikesimons/traverser"
@@ -49,11 +50,24 @@ func noopNodeVisitor(keys []string, data reflect.Value) (traverser.Op, error) {
 
 var _ = Describe("traverser", func() {
 	Describe("Traverse", func() {
-		It("should call Node callback for each node", func() {
+		It("should call Node callback for each node, map or slice", func() {
+			nodeCount := 0
+			mapCount := 0
+			sliceCount := 0
+
 			nodes := make(map[string]interface{})
 			// Make some of these interface and some *interface types. Test by validating key paths + values against expected list
 			t := traverser.Traverser{
 				Node: func(keys []string, data reflect.Value) (traverser.Op, error) {
+					switch data.Kind() {
+					case reflect.Map:
+						mapCount += 1
+					case reflect.Slice:
+						sliceCount += 1
+					default:
+						nodeCount += 1
+					}
+
 					nodes[strings.Join(keys, "/")] = data.Interface()
 					return traverser.Noop()
 				},
@@ -63,7 +77,9 @@ var _ = Describe("traverser", func() {
 			err := t.Traverse(reflect.ValueOf(data))
 
 			Expect(err).To(BeNil())
-			Expect(len(nodes)).To(Equal(6))
+			Expect(nodeCount).To(Equal(6))
+			Expect(mapCount).To(Equal(3))
+			Expect(sliceCount).To(Equal(1))
 
 			// spot checks
 			Expect(nodes["a/ac/aca"]).To(Equal("hello"))
@@ -119,7 +135,7 @@ var _ = Describe("traverser", func() {
 			data := mapTestData()
 			err := t.Traverse(reflect.ValueOf(data))
 			Expect(err).To(BeNil())
-			Expect(len(nodes)).To(Equal(1))
+			Expect(len(nodes)).To(Equal(3))
 		})
 	})
 
@@ -208,7 +224,20 @@ var _ = Describe("traverser", func() {
 			Expect(newval).To(Equal(expected))
 		})
 
-		PIt("should do nothing to map if OP_NOOP returned from Node")
-		PIt("should do nothing to slice if OP_NOOP returned from Node")
+		It("should not change input if OP_NOOP returned from Node", func() {
+			t := traverser.Traverser{
+				Node: func(keys []string, data reflect.Value) (traverser.Op, error) {
+					return traverser.Noop()
+				},
+			}
+
+			data := mapTestData()
+			before, _ := json.Marshal(data)
+			err := t.Traverse(reflect.ValueOf(data))
+			Expect(err).To(BeNil())
+			after, _ := json.Marshal(data)
+
+			Expect(before).To(Equal(after))
+		})
 	})
 })
