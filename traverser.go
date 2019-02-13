@@ -67,6 +67,9 @@ func (gt *Traverser) traverse(data reflect.Value, keys []string) (Op, error) {
 				data.SetMapIndex(k, op.val)
 			}
 		}
+		if gt.Node != nil {
+			return gt.Node(keys, data)
+		}
 	case reflect.Slice:
 		d := data.Interface().([]interface{})
 		for k := range d {
@@ -84,6 +87,9 @@ func (gt *Traverser) traverse(data reflect.Value, keys []string) (Op, error) {
 			} else if op.op == op_unset {
 				d = append(d[:k], d[k+1:]...)
 			}
+		}
+		if gt.Node != nil {
+			return gt.Node(keys, data)
 		}
 	case reflect.Struct:
 		fallthrough
