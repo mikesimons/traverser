@@ -12,6 +12,9 @@ func GetKey(data interface{}, target []string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !v.IsValid() {
+		return nil, nil
+	}
 	return v.Interface(), nil
 }
 
