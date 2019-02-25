@@ -6,7 +6,6 @@ import (
 
 	"github.com/mikesimons/traverser"
 
-	//"fmt"
 	"reflect"
 	"strings"
 
@@ -74,10 +73,10 @@ var _ = Describe("traverser", func() {
 			}
 
 			data := mapTestData()
-			err := t.Traverse(reflect.ValueOf(data))
+			_, err := t.Traverse(reflect.ValueOf(data))
 
 			Expect(err).To(BeNil())
-			Expect(nodeCount).To(Equal(6))
+			Expect(nodeCount).To(Equal(9))
 			Expect(mapCount).To(Equal(3))
 			Expect(sliceCount).To(Equal(1))
 
@@ -97,7 +96,7 @@ var _ = Describe("traverser", func() {
 			}
 
 			data := mapTestData()
-			err := t.Traverse(reflect.ValueOf(data))
+			_, err := t.Traverse(reflect.ValueOf(data))
 
 			Expect(err).To(BeNil())
 			Expect(len(maps)).To(Equal(3))
@@ -111,7 +110,7 @@ var _ = Describe("traverser", func() {
 				Node: noopNodeVisitor,
 			}
 
-			err := t.Traverse(reflect.ValueOf(nil))
+			_, err := t.Traverse(reflect.ValueOf(nil))
 
 			Expect(err).To(BeNil())
 		})
@@ -133,10 +132,13 @@ var _ = Describe("traverser", func() {
 			}
 
 			data := mapTestData()
-			err := t.Traverse(reflect.ValueOf(data))
+			_, err := t.Traverse(reflect.ValueOf(data))
 			Expect(err).To(BeNil())
 			Expect(len(nodes)).To(Equal(3))
 		})
+
+		PIt("should handle map at root")
+		PIt("should handle slice at root")
 	})
 
 	Describe("Traverse return operation handling", func() {
@@ -151,11 +153,11 @@ var _ = Describe("traverser", func() {
 			}
 
 			data := mapTestData()
-			err := t.Traverse(reflect.ValueOf(data))
+			newData, err := t.Traverse(reflect.ValueOf(data))
 			Expect(err).To(BeNil())
 
 			splitPath := []string{"a", "aa"}
-			v, err := optikon.Select(data, splitPath)
+			v, err := optikon.Select(newData.Interface(), splitPath)
 			Expect(err).To(BeNil())
 			Expect(v).To(Equal("TEST"))
 		})
@@ -171,11 +173,11 @@ var _ = Describe("traverser", func() {
 			}
 
 			data := mapTestData()
-			err := t.Traverse(reflect.ValueOf(data))
+			newData, err := t.Traverse(reflect.ValueOf(data))
 			Expect(err).To(BeNil())
 
 			splitPath := []string{"a", "aa"}
-			_, err = optikon.Select(data, splitPath)
+			_, err = optikon.Select(newData.Interface(), splitPath)
 			Expect(err).To(BeAssignableToTypeOf(&optikon.KeyNotFoundError{}))
 		})
 
@@ -190,11 +192,11 @@ var _ = Describe("traverser", func() {
 			}
 
 			data := mapTestData()
-			err := t.Traverse(reflect.ValueOf(data))
+			newData, err := t.Traverse(reflect.ValueOf(data))
 			Expect(err).To(BeNil())
 
 			splitPath := []string{"b", "0"}
-			v, err := optikon.Select(data, splitPath)
+			v, err := optikon.Select(newData.Interface(), splitPath)
 			Expect(err).To(BeNil())
 			Expect(v).To(Equal("TEST"))
 		})
@@ -215,11 +217,10 @@ var _ = Describe("traverser", func() {
 			oldval, _ := optikon.Select(data, splitPath)
 
 			expected, _ := optikon.Select(data, []string{"b", "1"})
-
-			err := t.Traverse(reflect.ValueOf(data))
+			newData, err := t.Traverse(reflect.ValueOf(data))
 			Expect(err).To(BeNil())
 
-			newval, _ := optikon.Select(data, splitPath)
+			newval, _ := optikon.Select(newData.Interface(), splitPath)
 			Expect(newval).NotTo(Equal(oldval))
 			Expect(newval).To(Equal(expected))
 		})
@@ -233,11 +234,14 @@ var _ = Describe("traverser", func() {
 
 			data := mapTestData()
 			before, _ := json.Marshal(data)
-			err := t.Traverse(reflect.ValueOf(data))
+			newData, err := t.Traverse(reflect.ValueOf(data))
 			Expect(err).To(BeNil())
-			after, _ := json.Marshal(data)
+			after, _ := json.Marshal(newData.Interface())
 
 			Expect(before).To(Equal(after))
 		})
+
+		PIt("should set struct field if OP_SET returned from Node")
+		PIt("should set struct field to zero value if OP_UNSET returned from Node")
 	})
 })
