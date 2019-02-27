@@ -13,6 +13,7 @@ const (
 	opSet
 	opUnset
 	opSkip
+	opSplice
 )
 
 // Traverser is the main type and contains the Map & Node callbacks to be used.
@@ -103,6 +104,14 @@ func (gt *Traverser) traverse(copy, original reflect.Value, keys []string) (Op, 
 			} else if op.op == opUnset {
 				copy.Set(reflect.ValueOf(append(copyValue[:ci], copyValue[ci+1:]...)))
 				ci--
+			} else if op.op == opSplice {
+				splice, ok := op.val.Interface().([]interface{})
+				if !ok {
+					return ErrorNoop(fmt.Errorf("only slices can be spliced"))
+				}
+				copyValue = append(copyValue[:ci], append(splice, copyValue[ci+1:]...)...)
+				copy.Set(reflect.ValueOf(copyValue))
+				ci += len(splice) - 1
 			}
 		}
 
@@ -160,6 +169,10 @@ func Noop() (Op, error) {
 // Unset is a helper function that will return an Op that unsets the key currently being traversed
 func Unset() (Op, error) {
 	return Op{opUnset, reflect.Value{}}, nil
+}
+
+func Splice(v reflect.Value) (Op, error) {
+	return Op{opSplice, v}, nil
 }
 
 // ErrorSet is a helper function that will return an Op that sets the key currently being traversed to the given value and returns an error
