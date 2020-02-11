@@ -22,7 +22,7 @@ var _ = Describe("traverser", func() {
 
 			val, err := traverser.GetKey(data, []string{"zzzzz"})
 			Expect(val).To(BeNil())
-			Expect(err.Error()).To(Equal("key does not exist"))
+			Expect(err.Error()).To(Equal("Invalid field: zzzzz"))
 		})
 
 		It("should return error if node is not traversable", func() {
@@ -30,7 +30,7 @@ var _ = Describe("traverser", func() {
 
 			val, err := traverser.GetKey(data, []string{"a", "aa", "test"})
 			Expect(val).To(BeNil())
-			Expect(err.Error()).To(Equal("can't traverse string at a.aa"))
+			Expect(err.Error()).To(Equal("Invalid field: a.aa.test"))
 		})
 	})
 })

@@ -12,8 +12,8 @@ var _ = Describe("traverser", func() {
 		It("should set value at target", func() {
 			data := mapTestData()
 
-			err := traverser.SetKey(data, []string{"a", "aa"}, "def")
-			val := data["a"].(map[interface{}]interface{})["aa"]
+			newData, err := traverser.SetKey(data, []string{"a", "aa"}, "def")
+			val := newData.Interface().(map[interface{}]interface{})["a"].(map[interface{}]interface{})["aa"]
 
 			Expect(err).To(BeNil())
 			Expect(val).To(Equal("def"))
@@ -22,8 +22,8 @@ var _ = Describe("traverser", func() {
 		It("should return error if node is not traversable", func() {
 			data := mapTestData()
 
-			err := traverser.SetKey(data, []string{"a", "aa", "test"}, "value")
-			Expect(err.Error()).To(Equal("can't traverse string at a.aa"))
+			_, err := traverser.SetKey(data, []string{"a", "aa", "test"}, "value")
+			Expect(err.Error()).To(Equal("Invalid field: a.aa.test"))
 		})
 	})
 })

@@ -3,6 +3,8 @@ package traverser
 import (
 	"fmt"
 	"reflect"
+
+	"gopkg.in/yaml.v3"
 )
 
 // New traversal code is derivative of https://gist.github.com/hvoecking/10772475
@@ -33,6 +35,17 @@ type Op struct {
 	val reflect.Value
 }
 
+func resolveInterface(t reflect.Value) reflect.Value {
+	if t.Kind() == reflect.Interface || t.Kind() == reflect.Ptr {
+		next := t.Elem()
+		if !next.IsValid() {
+			return reflect.ValueOf(nil)
+		}
+		return resolveInterface(next)
+	}
+	return t
+}
+
 // Traverse is the entrypoint for recursive traversal of the given reflect.Value.
 // reflect.Value is used to support both maps and lists at the root as interface{} is not compatible with []interface{}
 func (gt *Traverser) Traverse(original reflect.Value) (reflect.Value, error) {
@@ -40,9 +53,66 @@ func (gt *Traverser) Traverse(original reflect.Value) (reflect.Value, error) {
 		return reflect.Value{}, nil
 	}
 
-	copy := reflect.New(original.Type()).Elem()
-	_, err := gt.traverse(copy, original, []string{})
-	return copy, err
+	var ret reflect.Value
+	var err error
+
+	original = resolveInterface(original)
+	if original.Type().AssignableTo(reflect.TypeOf(yaml.Node{})) {
+		node := original.Interface().(yaml.Node)
+		_, err = gt.traverseYAMLV3(&node, []string{})
+		ret = reflect.ValueOf(&node)
+	} else {
+		ret = reflect.New(original.Type()).Elem()
+		_, err = gt.traverse(ret, original, []string{})
+	}
+
+	return ret, err
+}
+
+func (gt *Traverser) traverseYAMLV3(node *yaml.Node, keys []string) (Op, error) {
+	if gt.Accept != nil && len(keys) > 0 {
+		op, _ := gt.Accept(keys, reflect.ValueOf(node))
+		if op.op == opSkip {
+			return Noop()
+		}
+	}
+
+	if len(node.Content) == 0 {
+		if gt.Node != nil {
+			op, err := gt.Node(keys, reflect.ValueOf(node.Value))
+			if err != nil {
+				return op, err
+			}
+
+			if op.op == opSet {
+				node.Value = fmt.Sprintf("%v", op.val.Interface())
+			} else if op.op == opUnset {
+				return op, err
+			}
+		}
+	} else {
+		if node.Kind == yaml.MappingNode {
+			key := ""
+			for i, n := range node.Content {
+				if i%2 == 0 {
+					key = n.Value
+					continue
+				}
+				op, err := gt.traverseYAMLV3(n, append(keys, key))
+				if err != nil {
+					return op, err
+				}
+			}
+		} else {
+			for i, n := range node.Content {
+				op, err := gt.traverseYAMLV3(n, append(keys, fmt.Sprintf("%v", i)))
+				if err != nil {
+					return op, err
+				}
+			}
+		}
+	}
+	return Noop()
 }
 
 func (gt *Traverser) traverse(copy, original reflect.Value, keys []string) (Op, error) {
