@@ -7,3 +7,5 @@ Used by:
 - [kpatch](https://github.com/mikesimons/kpatch) to apply expression results to Kubernetes manifests.
 
 Tested with data from common yaml, json and toml parsers.
+
+Supports yaml.v3 yaml.Node type for yaml manipulation preserving some formatting / comments.
